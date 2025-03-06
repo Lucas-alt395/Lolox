@@ -1,0 +1,80 @@
+from ursina import *
+from math import sin, cos, radians
+
+app = Ursina(fullscreen=True)  # Start in fullscreen
+
+# Player setup (Invisible because we are in first-person view)
+player = Entity(model='cube', color=color.orange, scale=(1, 2, 1), collider='box', visible=False)
+
+# Ground setup (Bigger Map)
+ground = Entity(model='plane', texture='grass', collider='box', scale=(100, 1, 100), position=(0, -1, 0))
+
+# Road (Long Rectangle)
+road = Entity(model='cube', color=color.gray, scale=(40, 0.1, 5), position=(0, -0.9, 0))
+
+# House
+house_walls = [
+    Entity(model='cube', color=color.brown, collider='box', position=(5, 0, 5), scale=(6, 4, 6)),  # Main house
+    Entity(model='cube', color=color.dark_gray, collider='box', position=(5, 2.5, 5), scale=(6, 1, 6)),  # Roof
+]
+door = Entity(model='cube', color=color.black, collider='box', position=(5, 0, 2.5), scale=(1, 2, 0.1))  # Door
+
+# Mouse settings
+mouse.locked = True  # Lock mouse to center
+
+# Movement variables
+rotation_x = 0
+rotation_y = 0
+mouse_sensitivity = 100  # Adjusted sensitivity
+rotation_speed = 2  # Arrow key rotation speed
+gravity = 0.1
+jump_force = 0.3
+velocity = 0  # Used for jumping
+
+def update():
+    global rotation_x, rotation_y, velocity
+
+    # Apply gravity
+    if not player.intersects(ground).hit and velocity <= 0:
+        player.y -= gravity
+    else:
+        velocity = 0  # Stop falling when touching the ground
+
+    # Handle jumping
+    if held_keys['space'] and player.intersects(ground).hit:
+        velocity = jump_force  # Jump up
+    player.y += velocity
+    velocity -= 0.01  # Simulate gravity
+
+    # Rotate player using mouse drag
+    rotation_y += mouse.velocity[0] * mouse_sensitivity
+    rotation_x -= mouse.velocity[1] * mouse_sensitivity
+    rotation_x = clamp(rotation_x, -80, 80)
+
+    # Rotate player using Left/Right Arrow Keys
+    if held_keys['left arrow']: rotation_y -= rotation_speed
+    if held_keys['right arrow']: rotation_y += rotation_speed
+
+    # Set player rotation
+    player.rotation_y = rotation_y
+
+    # Move forward in the direction the player is facing
+    base_speed = 0.1
+    speed = base_speed * (2 if held_keys['shift'] else 1)  # Sprinting doubles speed
+    forward = Vec3(sin(radians(rotation_y)), 0, cos(radians(rotation_y)))
+
+    if held_keys['w']: player.position += forward * speed
+    if held_keys['s']: player.position -= forward * speed
+    if held_keys['a']: player.position -= Vec3(sin(radians(rotation_y - 90)), 0, cos(radians(rotation_y - 90))) * speed
+    if held_keys['d']: player.position += Vec3(sin(radians(rotation_y + 90)), 0, cos(radians(rotation_y + 90))) * speed
+
+    # Always keep camera at player's head level
+    camera.position = player.position + Vec3(0, 1.5, 0)
+    camera.rotation_x = rotation_x
+    camera.rotation_y = rotation_y
+
+def input(key):
+    if key == 'escape':
+        application.quit()  # Close the window when ESC is pressed
+
+app.run()
